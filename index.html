@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pesticides - Qualité de l'eau</title>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.min.js"></script>
+  <link href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.5.0/dist/maplibre-gl-geocoder.css" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Vend Sans', sans-serif; }
+
+    body { width: 100%; height: 100vh; }
+
+    #map-container { position: relative; width: 100%; height: 100%; }
+    #map { width: 100%; height: 100%; }
+
+    /* ── LÉGENDE ── */
+    #legend {
+      position: absolute;
+      bottom: 20px;
+      left: 10px;
+      background: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      max-width: 260px;
+    }
+    #legend b { font-size: 11px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+    .legend-box { width: 12px; height: 12px; border: 1px solid #ccc; flex-shrink: 0; }
+
+    /* ── BOUTONS DOM ── */
+    #buttons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    #buttons button {
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    #buttons button:hover { background: #f0f0f0; }
+
+    /* ── BOUTON PLEIN ÉCRAN ── */
+    #fullscreen-btn {
+      position: absolute;
+      bottom: 30px;
+      right: 10px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    /* ── MESSAGE D'ERREUR (caché tant que tout va bien) ── */
+    #statut {
+      display: none;
+      position: absolute;
+      bottom: 70px;
+      right: 10px;
+      background: white;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      max-width: 280px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    /* ── FAUX PLEIN ÉCRAN iOS ── */
+    .fake-fullscreen {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 9999 !important;
+    }
+
+    /* ── FENÊTRE D'INFORMATIONS ── */
+    .popup-eau .maplibregl-popup-content {
+      padding: 14px 16px 12px;
+      max-height: 65vh;
+      overflow-y: auto;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #1a1a1a;
+      box-shadow: 0 1px 4px rgba(75, 55, 55, 0.2);
+    }
+    .popup-eau h3 { font-size: 14px; margin: 0 18px 8px 0; line-height: 1.25; }
+    .popup-eau .statut { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; font-size: 14px; }
+    .popup-eau .pastille { width: 14px; height: 14px; border-radius: 100%; flex-shrink: 0; margin-top: 2px; }
+    .popup-eau .date { margin: 8px 0; }
+        .popup-eau summary {
+      list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; font-weight: 700; color: grey;
+    }
+    .popup-eau summary::-webkit-details-marker { display: none; }
+    .popup-eau summary::after {
+      content: ''; width: 7px; height: 7px; margin-right: 4px;
+      border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      transform: rotate(45deg); transition: transform .15s;
+    }
+    .popup-eau details[open] > summary::after { transform: rotate(-135deg); }
+    .popup-eau summary.alerte, .popup-eau .val.alerte { color: #e08a00; }
+    .popup-eau .ligne { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 14px; }
+    .popup-eau .val { font-weight: 600; white-space: nowrap; }
+
+    .popup-eau .maplibregl-popup-close-button {
+  top: 8px;
+  right: 10px;
+  width: 18px;
+  height: 24px;
+  font-size: 15px;
+  line-height: 22px;
+  border-radius: 50%;
+  color: black;
+}
+.popup-eau .maplibregl-popup-close-button:hover { background: #f0f0f0; color: #1a1a1a; }
+
+    /* ── BARRE DE RECHERCHE ── */
+    .maplibregl-ctrl-geocoder { width: 260px; max-width: 260px; }
+    .maplibregl-ctrl-geocoder--icon-search { display: none; }
+    .maplibregl-marker { display: none !important; }
+    .maplibregl-ctrl-geocoder input,
+    .maplibregl-ctrl-geocoder .suggestions,
+    .maplibregl-ctrl-geocoder .suggestions li {
+      font-family: 'Vend Sans', sans-serif !important;
+      font-size: 12px;
+    }
+
+    /* ── RESPONSIVE MOBILE ── */
+    @media (max-width: 600px) {
+      #legend {
+        font-size: 10px;
+        padding: 6px 8px;
+        max-width: 200px;
+        bottom: 50px;
+      }
+      #legend b { font-size: 10px; }
+      .legend-box { width: 10px; height: 10px; }
+
+      #buttons button {
+        font-size: 10px;
+        padding: 4px 8px;
+        color: black;
+      }
+
+      .maplibregl-ctrl-geocoder {
+        width: calc(100vw - 130px);
+        max-width: calc(100vw - 130px);
+      }
+
+      #fullscreen-btn {
+        font-size: 11px;
+        padding: 5px 8px;
+        color: black;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div id="map-container">
+
+  <div id="map"></div>
+
+  <div id="legend">
+    <b>Pesticides dans l'eau potable</b>
+        <div>Analyses sur les douze derniers mois</div>
+    <div class="legend-item"><div class="legend-box" style="background:#40c58d"></div> Conforme aux limites de qualité</div>
+    <div class="legend-item"><div class="legend-box" style="background:#FFF86B"></div> Au moins un pesticide quantifié sans dépassement des limites de qualité</div>
+    <div class="legend-item"><div class="legend-box" style="background:#F5BA47"></div> Dépasse aux limites de qualité</div>
+    <div class="legend-item"><div class="legend-box" style="background:#E7292D"></div> Eau devant être déconseillée à la consommation en raison de la présence de pesticides</div>
+    <div class="legend-item"><div class="legend-box" style="background:#9a9a9a"></div> Pas de données</div>
+    <div class="legend-item"><div class="legend-box"></div> Aucun réseau de distribution identifié</div>
+    <hr style="border: none; border-top: 1px solid #eee; margin: 6px 0;">
+    <div style="font-size: 10px;">
+      <div>Source : Générations Futures, Data For Good, Ministère des Solidarités et de la Santé</div>
+      <div>© Lisa Boudoussier</div>
+    </div>
+    <div style="display: flex; justify-content: flex-end; margin-top: 3px;">
+      <img src="https://lisaboudoussier-8.github.io/pfas-tiles/vert-PNG.png" alt="Vert" height="24">
+    </div>
+  </div>
+
+  <div id="buttons">
+    <button onclick="flyTo([2.5, 46.5], 5)">France hexagonale</button>
+    <button onclick="flyTo([-61.5, 16.2], 9)">Guadeloupe</button>
+    <button onclick="flyTo([-61.0, 14.6], 9)">Martinique</button>
+    <button onclick="flyTo([-53.0, 4.0], 6)">Guyane</button>
+    <button onclick="flyTo([55.5, -21.1], 9)">La Réunion</button>
+    <button onclick="flyTo([45.2, -12.8], 10)">Mayotte</button>
+  </div>
+
+  <div id="statut"></div>
+
+  <button id="fullscreen-btn" onclick="toggleFullscreen()">⛶ Plein écran</button>
+
+</div>
+
+<script>
+ // Le fichier de tuiles est dans le même dossier que cette page
+  const PM_URL = new URL('eau.pmtiles', window.location.href).href;
+
+  let map = null;
+  let currentPopup = null;
+
+  function erreur(msg) {
+    const s = document.getElementById('statut');
+    s.style.display = 'block';
+    s.textContent = msg;
+  }
+
+  function flyTo(center, zoom) {
+    if (map) map.flyTo({ center, zoom });
+  }
+
+  // ── CONTENU DE LA FENÊTRE AU CLIC ──
+  const STATUTS = {
+    sup_valeur_sanitaire: ['#E7292D', 'Dépasse une valeur sanitaire'],
+    sup_limite_qualite:   ['#F5BA47', 'Dépasse la limite de qualité (eau non conforme)'],
+    inf_limite_qualite:   ['#40c58d', 'Conforme à la limite de qualité'],
+    non_quantifie:        ['#40c58d', 'Aucune substance quantifiée'],
+    pas_de_donnees:       ['#9a9a9a', 'Pas de données']
+  };
+  const SECTIONS = [
+    ['active', 'Substances actives'],
+    ['metabolite_pertinent', 'Métabolites pertinents'],
+    ['metabolite_non_pertinent', 'Métabolites non pertinents'],
+    ['autres', 'Totaux']
+  ];
+  const LIMITE = 0.1;   // µg/L, limite de qualité par substance
+
+  // Dictionnaire code -> {nom, cat}, chargé depuis molecules.json (facultatif)
+  let MOLECULES = {};
+  fetch('molecules.json').then(r => r.json()).then(j => { MOLECULES = j; }).catch(() => {});
+
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmt = v => Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 4 }) + ' µg/L';
+
+  function lireParametres(s) {
+    if (!s) return {};
+    try { return typeof s === 'string' ? JSON.parse(s) : s; } catch (e) { return {}; }
+  }
+
+  function popupHtml(p) {
+    const [couleur, libelle] = STATUTS[p.resultat] || STATUTS.pas_de_donnees;
+    let html = `<h3>${esc(p.nom)}${p.nom_region ? ' <small>(' + esc(p.nom_region) + ')</small>' : ''}</h3>` +
+      `<div class="statut"><span class="pastille" style="background:${couleur}"></span><span>${libelle}</span></div>`;
+
+    if (p.resultat === 'pas_de_donnees') {
+      return html + '<div class="date"><i>Aucun pesticide recherché ces 12 derniers mois</i></div>' +
+        (p.detail ? `<div class="detail">${esc(p.detail)}</div>` : '');
+    }
+
+    if (p.date_fr) html += `<div class="date">Dernière analyse le ${esc(p.date_fr)}</div>`;
+
+    // Regroupe les substances par catégorie
+    const groupes = {};
+    for (const [code, val] of Object.entries(lireParametres(p.parametres_detectes))) {
+      const m = MOLECULES[code] || { nom: code, cat: 'autres' };
+      (groupes[m.cat] = groupes[m.cat] || []).push({ nom: m.nom, val, cat: m.cat });
+    }
+
+    if (Object.keys(groupes).length === 0) {
+      html += '<div class="date">Substances quantifiées : aucune</div>';
+    } else {
+      html += '<div class="date">Substances quantifiées :</div>';
+      for (const [cle, titre] of SECTIONS) {
+        const items = (groupes[cle] || []).sort((a, b) => b.val - a.val);
+        if (!items.length) continue;
+        const alerte = cle !== 'totaux' && cle !== 'metabolite_non_pertinent' && items.some(i => i.val > LIMITE);
+        html += `<details${cle === 'totaux' ? ' open' : ''}><summary class="${alerte ? 'alerte' : ''}">${titre} (${items.length})</summary>` +
+          items.map(i => {
+            const depasse = alerte && i.val > LIMITE;
+            return `<div class="ligne"><span>${esc(i.nom)}</span><span class="val${depasse ? ' alerte' : ''}">${fmt(i.val)}</span></div>`;
+          }).join('') + '</details>';
+      }
+    }
+    if (p.detail) html += `<div class="detail">${esc(p.detail)}</div>`;
+    return html;
+  }
+
+  // ── POPUP UNIQUE ──
+  function openPopup(lngLat, html) {
+    if (currentPopup) currentPopup.remove();
+    currentPopup = new maplibregl.Popup({ maxWidth: '360px', className: 'popup-eau' })
+      .setLngLat(lngLat)
+      .setHTML(html)
+      .addTo(map);
+  }
+
+  // ── TUILES ──
+  const protocol = new pmtiles.Protocol();
+  maplibregl.addProtocol('pmtiles', protocol.tile);
+  const archive = new pmtiles.PMTiles(PM_URL);
+  protocol.add(archive);
+
+  archive.getMetadata().then(meta => {
+    // Nom de la couche lu directement dans le fichier
+    const couche = (meta.vector_layers && meta.vector_layers[0].id) || 'eau';
+
+    map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+      center: [2.5, 46.5],
+      zoom: 5
+    });
+    map.on('error', e => erreur('Erreur : ' + (e.error && e.error.message)));
+
+    // ── BARRE DE RECHERCHE ──
+    const geocoder = new MaplibreGeocoder(
+      {
+        forwardGeocode: async (config) => {
+          try {
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(config.query)}&format=geojson&countrycodes=fr&limit=10`;
+            const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
+            const data = await res.json();
+
+            const seen = new Set();
+            const filtered = data.features.filter(f => {
+              const type = f.properties.type;
+              const parts = f.properties.display_name.split(',');
+              const nom = parts[0].trim();
+              const dept = parts[1] ? parts[1].trim() : '';
+              const cle = `${nom}|${dept}`;
+              const isRelevant = ['city', 'town', 'village', 'municipality', 'administrative'].includes(type);
+              if (!isRelevant || seen.has(cle)) return false;
+              seen.add(cle);
+              return true;
+            });
+
+            return {
+              features: filtered.map(f => ({
+                type: 'Feature',
+                geometry: f.geometry,
+                place_name: f.properties.display_name.split(',').slice(0, 2).join(',').trim(),
+                center: f.geometry.type === 'Point'
+                  ? f.geometry.coordinates
+                  : [f.bbox[0] + (f.bbox[2] - f.bbox[0]) / 2, f.bbox[1] + (f.bbox[3] - f.bbox[1]) / 2],
+                properties: f.properties
+              }))
+            };
+          } catch (e) {
+            return { features: [] };
+          }
+        }
+      },
+      {
+        maplibregl,
+        placeholder: '🔍  Rechercher une commune',
+        collapsed: false,
+        flyTo: false,
+        minLength: 2,
+        debounceSearch: 300
+      }
+    );
+
+    map.addControl(geocoder, 'top-left');
+
+    // Lance la recherche sans appuyer sur Entrée
+    setTimeout(() => {
+      const input = document.querySelector('.maplibregl-ctrl-geocoder input');
+      if (input) {
+        input.addEventListener('input', function () {
+          if (this.value.length >= 2) {
+            const event = new KeyboardEvent('keydown', { keyCode: 13, bubbles: true });
+            this.dispatchEvent(event);
+          }
+        });
+      }
+    }, 500);
+
+    geocoder.on('result', function (e) {
+      const center = e.result.center;
+      map.flyTo({ center, zoom: 11 });
+      map.once('moveend', function () {
+        setTimeout(() => {
+          const point = map.project(center);
+          const features = map.queryRenderedFeatures(point, { layers: ['eau-fill'] });
+          if (features.length > 0) openPopup(center, popupHtml(features[0].properties));
+        }, 500);
+      });
+    });
+
+    // ── COUCHE DES TUILES ──
+    map.on('load', function () {
+      // Noms en français : on remplace le champ de texte de chaque couche d'étiquettes
+map.getStyle().layers.forEach(l => {
+  if (l.type !== 'symbol' || !l.layout || !l.layout['text-field']) return;
+
+  // On ne touche qu'aux couches qui affichent un nom (pas aux numéros de route, etc.)
+  if (!JSON.stringify(l.layout['text-field']).includes('name')) return;
+
+  map.setLayoutProperty(l.id, 'text-field', [
+    'coalesce',
+    ['get', 'name:fr'],
+    ['get', 'name:latin'],
+    ['get', 'name']
+  ]);
+});
+      map.addSource('eau', { type: 'vector', url: 'pmtiles://' + PM_URL });
+
+      const couleurs = ['match', ['get', 'resultat'],
+  'sup_valeur_sanitaire', '#E7292D',
+  'sup_limite_qualite',   '#F5BA47',
+  'inf_limite_qualite',   '#EEF349',
+  'non_quantifie',        '#40c58d',
+  '#9a9a9a'];
+
+// Première couche de texte du fond de carte (noms de villes, etc.)
+const premiereEtiquette = map.getStyle().layers.find(
+  l => l.type === 'symbol' && l.layout && l.layout['text-field']
+);
+const avant = premiereEtiquette ? premiereEtiquette.id : undefined;
+
+map.addLayer({
+  id: 'eau-fill',
+  type: 'fill',
+  source: 'eau',
+  'source-layer': couche,
+  minzoom: 4,
+  paint: {
+    'fill-opacity': 0.7,
+    'fill-color': ['match', ['get', 'resultat'],
+      'sup_valeur_sanitaire', '#E7292D',
+      'sup_limite_qualite',   '#F5BA47',
+      'inf_limite_qualite',   '#FFF86B',
+      'non_quantifie',        '#40c58d',
+      '#9a9a9a']
+  }
+}, avant);   // ← le second argument place la couche sous les étiquettes
+
+map.addLayer({
+  id: 'eau-bord', type: 'line', source: 'eau', 'source-layer': couche,
+  minzoom: 4,
+  paint: { 'line-color': couleurs, 'line-width': 0.7, 'line-opacity': 0.7 }
+}, avant); 
+
+      map.on('click', 'eau-fill', function (e) {
+        openPopup(e.lngLat, popupHtml(e.features[0].properties));
+      });
+      map.on('mouseenter', 'eau-fill', () => map.getCanvas().style.cursor = 'pointer');
+      map.on('mouseleave', 'eau-fill', () => map.getCanvas().style.cursor = '');
+    });
+
+  }).catch(err => erreur('Impossible de lire ' + PM_URL + ' → ' + err.message));
+
+  // ── PLEIN ÉCRAN ──
+  function toggleFullscreen() {
+    const container = document.getElementById('map-container');
+    const btn = document.getElementById('fullscreen-btn');
+    const isIOS = /iPhone|iPad/i.test(navigator.userAgent);
+
+    if (!isIOS && document.fullscreenEnabled) {
+      if (!document.fullscreenElement) {
+        container.requestFullscreen();
+        btn.textContent = '✕ Quitter';
+      } else {
+        document.exitFullscreen();
+        btn.textContent = '⛶ Plein écran';
+      }
+    } else {
+      if (container.classList.contains('fake-fullscreen')) {
+        container.classList.remove('fake-fullscreen');
+        btn.textContent = '⛶ Plein écran';
+      } else {
+        container.classList.add('fake-fullscreen');
+        btn.textContent = '✕ Quitter';
+      }
+      setTimeout(() => map && map.resize(), 100);
+    }
+  }
+
+  document.addEventListener('fullscreenchange', function () {
+    const btn = document.getElementById('fullscreen-btn');
+    if (!document.fullscreenElement) btn.textContent = '⛶ Plein écran';
+    if (map) map.resize();
+  });
+</script>
+</body>
+</html>
