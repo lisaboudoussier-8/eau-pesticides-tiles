@@ -22,8 +22,8 @@
       border-radius: 6px; font-size: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); max-width: 260px;
     }
     #legend b { font-size: 14px; }
-    .legend-item { display: flex; align-items: center; gap: 5px; margin: 4px 0; }
-    .legend-box { width: 13px; height: 12px; border: 1px solid #ccc; flex-shrink: 0; }
+    .legend-item { display: flex; align-items: flex-start ; gap: 5px; margin: 4px 0; }
+    .legend-box { width: 11px; height: 12px; border: 1px solid #ccc; flex-shrink: 0; }
 
     /* ── BOUTONS DOM ── */
     #buttons { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -168,7 +168,7 @@
     'sup_limite_qualite',   '#F5BA47',
     'inf_limite_qualite',   '#FFF86B',
     'non_quantifie',        '#40c58d',
-    '#fcf8f4'];
+    '#ECEFE6'];
 
   // ── CONTENU DE LA FENÊTRE ──
   const STATUTS = {
@@ -176,7 +176,7 @@
     sup_limite_qualite:   ['#F5BA47', 'Dépasse la limite de qualité (eau non conforme)'],
     inf_limite_qualite:   ['#FFF86B', 'Au moins un pesticide quantifié, sans dépassement des limites de qualité'],
     non_quantifie:        ['#40c58d', 'Conforme : aucune substance quantifiée'],
-    pas_de_donnees:       ['#fcf8f4', 'Pas de données']
+    pas_de_donnees:       ['#ECEFE6', 'Pas de données']
   };
 
   // Ordre d'affichage des menus déroulants
