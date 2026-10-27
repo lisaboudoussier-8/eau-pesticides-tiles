@@ -118,7 +118,6 @@
     <div class="legend-item"><div class="legend-box" style="background:#40c58d"></div> Conforme aux limites de qualité</div>
     <div class="legend-item"><div class="legend-box" style="background:#FFF86B"></div> Au moins un pesticide quantifié sans dépassement des limites de qualité</div>
     <div class="legend-item"><div class="legend-box" style="background:#F5BA47"></div> Dépasse les limites de qualité</div>
-    <div class="legend-item"><div class="legend-box" style="background:#E7292D"></div> «Eau devant être déconseillée à la consommation»</div>
     <div class="legend-item"><div class="legend-box" style="background:#ECEFE6"></div> Pas de données</div>
     <hr style="border: none; border-top: 1px solid #eee; margin: 6px 0;">
     <div style="font-size: 10px;">
@@ -164,7 +163,7 @@
 
   // ── COULEURS (une seule définition, utilisée par le remplissage et le contour) ──
   const COULEURS = ['match', ['get', 'resultat'],
-    'sup_valeur_sanitaire', '#E7292D',
+    'sup_valeur_sanitaire', '#F5BA47',
     'sup_limite_qualite',   '#F5BA47',
     'inf_limite_qualite',   '#FFF86B',
     'non_quantifie',        '#40c58d',
@@ -172,7 +171,7 @@
 
   // ── CONTENU DE LA FENÊTRE ──
   const STATUTS = {
-    sup_valeur_sanitaire: ['#E7292D', 'Eau à déconseiller : dépasse une valeur sanitaire'],
+    sup_valeur_sanitaire: ['#F5BA47', 'Dépasse la limite de qualité (eau non conforme)'],
     sup_limite_qualite:   ['#F5BA47', 'Dépasse la limite de qualité (eau non conforme)'],
     inf_limite_qualite:   ['#FFF86B', 'Au moins un pesticide quantifié, sans dépassement des limites de qualité'],
     non_quantifie:        ['#40c58d', 'Conforme : aucune substance quantifiée'],
