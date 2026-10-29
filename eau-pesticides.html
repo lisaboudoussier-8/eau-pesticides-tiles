@@ -104,6 +104,7 @@
       .maplibregl-ctrl-geocoder { width: calc(100vw - 130px); max-width: calc(100vw - 130px); }
       #fullscreen-btn { font-size: 11px; padding: 5px 8px; color: black; }
     }
+    
   </style>
 </head>
 <body>
@@ -166,6 +167,13 @@
     'sup_valeur_sanitaire', '#F5BA47',
     'sup_limite_qualite',   '#F5BA47',
     'inf_limite_qualite',   '#FFF86B',
+    'non_quantifie',        '#40c58d',
+    '#ECEFE6'];
+
+    const COULEURS_line = ['match', ['get', 'resultat'],
+    'sup_valeur_sanitaire', '#F5BA47',
+    'sup_limite_qualite',   '#F5BA47',
+    'inf_limite_qualite',   '#FCF165',
     'non_quantifie',        '#40c58d',
     '#ECEFE6'];
 
@@ -419,7 +427,7 @@
 
       map.addLayer({
         id: 'eau-bord', type: 'line', source: 'eau', 'source-layer': couche, minzoom: 4,
-        paint: { 'line-color': COULEURS, 'line-width': 0.9, 'line-opacity': 1 }
+        paint: { 'line-color': COULEURS_line, 'line-width': 1, 'line-opacity': 1 }
       }, avant);
 
       // Un seul gestionnaire de clic
